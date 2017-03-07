@@ -105,11 +105,13 @@ public class CertificateChain {
      * Throws CertPathBuilderException exception if fails among other exceptions.
      * @param chain chain candidate, first end certificate last issuer.
      * @param trustAnchors trust anchors to use.
+     * @param revocationEnabled check revocation.
      * @return CertPath
      */
     public static CertPath buildCertPath(
         List<Certificate> chain,
-        Set<TrustAnchor> trustAnchors
+        Set<TrustAnchor> trustAnchors,
+        boolean revocationEnabled
     ) throws GeneralSecurityException {
         X509CertSelector selector = new X509CertSelector();
         selector.setCertificate((X509Certificate)chain.get(0));
@@ -117,7 +119,12 @@ public class CertificateChain {
             trustAnchors,
             selector
         );
-        pkixParams.setRevocationEnabled(false);
+        pkixParams.setRevocationEnabled(
+            revocationEnabled && (
+                Boolean.getBoolean("com.sun.security.enableCRLDP") ||
+                Boolean.getBoolean("ocsp.enable")
+            )
+        );
         pkixParams.setMaxPathLength(-1);
         pkixParams.addCertStore(
             CertStore.getInstance(
@@ -126,6 +133,21 @@ public class CertificateChain {
             )
         );
         return CertPathBuilder.getInstance("PKIX").build(pkixParams).getCertPath();
+    }
+
+    /**
+     * Builds CertsPath object out of chain candidate.
+     * Throws CertPathBuilderException exception if fails among other exceptions.
+     * @param chain chain candidate, first end certificate last issuer.
+     * @param trustAnchors trust anchors to use.
+     * @param revocationEnabled check revocation.
+     * @return CertPath
+     */
+    public static CertPath buildCertPath(
+        List<Certificate> chain,
+        Set<TrustAnchor> trustAnchors
+    ) throws GeneralSecurityException {
+        return buildCertPath(chain, trustAnchors, true);
     }
 
     /**
@@ -156,7 +178,7 @@ public class CertificateChain {
                     if (extraTrustAnchors != null) {
                         trustAnchors.addAll(extraTrustAnchors);
                     }
-                    ret = new ArrayList<>(buildCertPath(ret, trustAnchors).getCertificates());
+                    ret = new ArrayList<>(buildCertPath(ret, trustAnchors, false).getCertificates());
                     top = ret.get(ret.size()-1);
                     for (TrustAnchor t : trustAnchors) {
                         try {

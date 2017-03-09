@@ -11,9 +11,9 @@ import java.security.cert.Certificate;
 import java.security.cert.CollectionCertStoreParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -115,7 +115,7 @@ public class JwtValidationTest {
         Map<String, Object> claims = new MMap<String, Object>()
             .mput("sub", "1234567890")
             .mput("name", "John Doe")
-            .mput("exp", new Date().getTime() + 60*1000)
+            .mput("exp", Instant.now().plusSeconds(60).getEpochSecond())
         ;
         if (eheaders != null) {
             headers.putAll(eheaders);

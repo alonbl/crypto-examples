@@ -10,8 +10,8 @@ import java.security.cert.PKIXCertPathBuilderResult;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509CertSelector;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,10 +45,10 @@ public class JwtValidation {
 
     private class CertificateCacheEntry {
         private final X509Certificate cert;
-        private final long expire;
+        private final Instant expire;
         CertificateCacheEntry(
             X509Certificate cert,
-            long expire
+            Instant expire
         ) {
             this.cert = cert;
             this.expire = expire;
@@ -93,7 +93,7 @@ public class JwtValidation {
         this.anchors = anchors;
         this.authorities = authorities;
         this.certstore = certstore;
-        this.ttl = ttl * 1000;
+        this.ttl = ttl;
 
     }
 
@@ -115,7 +115,7 @@ public class JwtValidation {
      * @returns {@ref JwtToken}.
      */
     public JwtToken verify(String jwt, boolean verifyExpiration) throws Exception {
-        long now = new Date().getTime();
+        Instant now = Instant.now();
 
         /*
          * Header
@@ -142,7 +142,7 @@ public class JwtValidation {
          * Key
          */
         CertificateCacheEntry entry = cache.get(kid);
-        if (entry == null || entry.expire < now) {
+        if (entry == null || now.isAfter(entry.expire)) {
             X509CertSelector selector = new X509CertSelector();
             byte[] kidraw = Base64.decodeBase64(kid);
             if (kidraw.length == 0) {
@@ -176,7 +176,7 @@ public class JwtValidation {
                 throw new IllegalArgumentException(String.format("Unauthorized keyid '%s' certificate '%s'", kid, cert.getSubjectX500Principal().getName()));
             }
 
-            entry = new CertificateCacheEntry(cert, now + ttl);
+            entry = new CertificateCacheEntry(cert, now.plusSeconds(ttl));
             cache.put(kid, entry);
         }
 
@@ -202,7 +202,7 @@ public class JwtValidation {
             throw new IllegalArgumentException("Missing expiration time");
         }
 
-        if (verifyExpiration && expire <= now) {
+        if (verifyExpiration && now.isAfter(Instant.ofEpochSecond(expire))) {
             throw new IllegalArgumentException("Token expired");
         }
 

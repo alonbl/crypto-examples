@@ -11,12 +11,12 @@ import java.security.Signature;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.type.TypeFactory;
 
@@ -55,8 +55,10 @@ public class EnvelopeSign {
         String blob,
         CertificateVerifier certificateVerifier
     ) throws IOException, GeneralSecurityException {
+        final Base64.Decoder decoder = Base64.getUrlDecoder();
+
         final Map<String, String> map = new ObjectMapper().readValue(
-            Base64.decodeBase64(blob),
+            decoder.decode(blob),
             TypeFactory.defaultInstance().constructMapType(HashMap.class, String.class, String.class)
         );
 
@@ -74,7 +76,7 @@ public class EnvelopeSign {
         }
 
         Certificate cert = CertificateFactory.getInstance("X509").generateCertificate(
-            new ByteArrayInputStream(Base64.decodeBase64(map.get(CERTIFICATE_KEY)))
+            new ByteArrayInputStream(decoder.decode(map.get(CERTIFICATE_KEY)))
         );
         if (certificateVerifier != null) {
             if (!certificateVerifier.verify(cert)) {
@@ -84,9 +86,9 @@ public class EnvelopeSign {
 
         Signature signature = Signature.getInstance(map.get(ALGO_KEY));
         signature.initVerify(cert);
-        signature.update(Base64.decodeBase64(map.get(SALT_KEY)));
+        signature.update(decoder.decode(map.get(SALT_KEY)));
         signature.update(map.get(PAYLOAD_KEY).getBytes(StandardCharsets.UTF_8));
-        if (signature.verify(Base64.decodeBase64(map.get(SIGNATURE_KEY)))) {
+        if (signature.verify(decoder.decode(map.get(SIGNATURE_KEY)))) {
             return map.get(PAYLOAD_KEY);
         } else {
             return null;
@@ -119,7 +121,7 @@ public class EnvelopeSign {
         Signature signature = Signature.getInstance(algorithm);
         signature.initSign(pkeyEntry.getPrivateKey(), random);
 
-        final Base64 base64 = new Base64(0);
+        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         final Map<String, String> map = new HashMap<>();
         final byte[] salt = new byte[MessageDigest.getInstance(
             algorithm.replaceFirst("with.*", "").replaceFirst("(\\d)", "-$1")
@@ -133,11 +135,11 @@ public class EnvelopeSign {
         map.put(ARTIFACT_KEY, ARTIFACT);
         map.put(VERSION_KEY, VERSION);
         map.put(ALGO_KEY, algorithm);
-        map.put(CERTIFICATE_KEY, base64.encodeToString(pkeyEntry.getCertificate().getEncoded()));
-        map.put(SALT_KEY, base64.encodeToString(salt));
+        map.put(CERTIFICATE_KEY, encoder.encodeToString(pkeyEntry.getCertificate().getEncoded()));
+        map.put(SALT_KEY, encoder.encodeToString(salt));
         map.put(PAYLOAD_KEY, payload);
-        map.put(SIGNATURE_KEY, base64.encodeToString(signature.sign()));
-        return base64.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
+        map.put(SIGNATURE_KEY, encoder.encodeToString(signature.sign()));
+        return encoder.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
     }
 
     public static String sign(

@@ -12,13 +12,13 @@ import java.security.cert.X509CertSelector;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.cxf.rs.security.jose.jwa.SignatureAlgorithm;
 import org.apache.cxf.rs.security.jose.jws.JwsHeaders;
 import org.apache.cxf.rs.security.jose.jws.JwsJwtCompactConsumer;
@@ -144,7 +144,7 @@ public class JwtValidation {
         CertificateCacheEntry entry = cache.get(kid);
         if (entry == null || now.isAfter(entry.expire)) {
             X509CertSelector selector = new X509CertSelector();
-            byte[] kidraw = Base64.decodeBase64(kid);
+            byte[] kidraw = Base64.getUrlDecoder().decode(kid);
             if (kidraw.length == 0) {
                 throw new IllegalArgumentException("Illegal keyid");
             }

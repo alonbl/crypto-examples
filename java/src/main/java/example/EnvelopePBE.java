@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -14,7 +15,6 @@ import java.util.Set;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.type.TypeFactory;
 
@@ -47,8 +47,10 @@ public class EnvelopePBE {
         String blob,
         String password
     ) throws IOException, GeneralSecurityException {
+        final Base64.Decoder decoder = Base64.getUrlDecoder();
+
         final Map<String, String> map = new ObjectMapper().readValue(
-            Base64.decodeBase64(blob),
+            decoder.decode(blob),
             TypeFactory.defaultInstance().constructMapType(HashMap.class, String.class, String.class)
         );
 
@@ -65,9 +67,9 @@ public class EnvelopePBE {
             throw new IllegalArgumentException(String.format("Invalid algorithm '%s'", map.get(ALGORITHM_KEY)));
         }
 
-        final byte[] salt = Base64.decodeBase64(map.get(SALT_KEY));
+        final byte[] salt = decoder.decode(map.get(SALT_KEY));
         return Arrays.equals(
-            Base64.decodeBase64(map.get(SECRET_KEY)),
+            decoder.decode(map.get(SECRET_KEY)),
             SecretKeyFactory.getInstance(map.get(ALGORITHM_KEY)).generateSecret(
                 new PBEKeySpec(
                     password.toCharArray(),
@@ -106,7 +108,7 @@ public class EnvelopePBE {
             random = SecureRandom.getInstance("SHA1PRNG");
         }
 
-        final Base64 base64 = new Base64(0);
+        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         final Map<String, String> map = new HashMap<>();
         final byte[] salt = new byte[keySize/8];
 
@@ -115,11 +117,11 @@ public class EnvelopePBE {
         map.put(ARTIFACT_KEY, ARTIFACT);
         map.put(VERSION_KEY, VERSION);
         map.put(ALGORITHM_KEY, algorithm);
-        map.put(SALT_KEY, base64.encodeToString(salt));
+        map.put(SALT_KEY, encoder.encodeToString(salt));
         map.put(ITERATIONS_KEY, Integer.toString(iterations));
         map.put(
             SECRET_KEY,
-            base64.encodeToString(
+            encoder.encodeToString(
                 SecretKeyFactory.getInstance(algorithm).generateSecret(
                     new PBEKeySpec(
                         password.toCharArray(),
@@ -130,7 +132,7 @@ public class EnvelopePBE {
                 ).getEncoded()
             )
         );
-        return base64.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
+        return encoder.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
     }
 
     public static String encode(

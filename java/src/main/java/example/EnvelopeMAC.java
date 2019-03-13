@@ -7,6 +7,7 @@ import java.security.Key;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,7 +18,6 @@ import java.util.Set;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.type.TypeFactory;
 
@@ -56,8 +56,10 @@ public class EnvelopeMAC {
         Collection<byte[]> keys,
         String blob
     ) throws IOException, GeneralSecurityException {
+        final Base64.Decoder decoder = Base64.getUrlDecoder();
+
         final Map<String, String> map = new ObjectMapper().readValue(
-            Base64.decodeBase64(blob),
+            decoder.decode(blob),
             TypeFactory.defaultInstance().constructMapType(HashMap.class, String.class, String.class)
         );
 
@@ -75,7 +77,7 @@ public class EnvelopeMAC {
         }
 
         byte[] key = null;
-        byte[] keyid = Base64.decodeBase64(map.get(KEYID_KEY));
+        byte[] keyid = decoder.decode(map.get(KEYID_KEY));
         for (byte[] candidate : keys) {
             if (
                 Arrays.equals(
@@ -92,11 +94,11 @@ public class EnvelopeMAC {
 
         Mac mac = Mac.getInstance(map.get(MAC_ALGO_KEY));
         mac.init(new SecretKeySpec(key, map.get(MAC_ALGO_KEY)));
-        mac.update(Base64.decodeBase64(map.get(SALT_KEY)));
+        mac.update(decoder.decode(map.get(SALT_KEY)));
         mac.update(map.get(PAYLOAD_KEY).getBytes(StandardCharsets.UTF_8));
         if (
             Arrays.equals(
-                Base64.decodeBase64(map.get(MAC_KEY)),
+                decoder.decode(map.get(MAC_KEY)),
                 mac.doFinal()
             )
         ) {
@@ -132,7 +134,7 @@ public class EnvelopeMAC {
         Mac mac = Mac.getInstance(algorithm);
         mac.init(new SecretKeySpec(key, algorithm));
 
-        final Base64 base64 = new Base64(0);
+        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         final Map<String, String> map = new HashMap<>();
         final byte[] salt = new byte[mac.getMacLength()];
 
@@ -145,11 +147,11 @@ public class EnvelopeMAC {
         map.put(VERSION_KEY, VERSION);
         map.put(MAC_ALGO_KEY, algorithm);
         map.put(KEYID_ALGO_KEY, KEY_ID_DIGEST);
-        map.put(KEYID_KEY, base64.encodeToString(MessageDigest.getInstance(KEY_ID_DIGEST).digest(key)));
-        map.put(SALT_KEY, base64.encodeToString(salt));
+        map.put(KEYID_KEY, encoder.encodeToString(MessageDigest.getInstance(KEY_ID_DIGEST).digest(key)));
+        map.put(SALT_KEY, encoder.encodeToString(salt));
         map.put(PAYLOAD_KEY, payload);
-        map.put(MAC_KEY, base64.encodeToString(mac.doFinal()));
-        return base64.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
+        map.put(MAC_KEY, encoder.encodeToString(mac.doFinal()));
+        return encoder.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
     }
 
     public static String sign(

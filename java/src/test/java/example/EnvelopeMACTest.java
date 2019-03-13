@@ -7,11 +7,11 @@ import static org.junit.Assert.assertNull;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.type.TypeFactory;
 import org.junit.Test;
@@ -31,13 +31,14 @@ public class EnvelopeMACTest {
     public void test1() throws Exception {
 
         Random random = new Random();
-        Base64 base64 = new Base64(0);
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+
         byte[] key = generateKey();
 
         for (int i=1;i<100;i++) {
             byte[] r = new byte[i];
             random.nextBytes(r);
-            String payload = base64.encodeToString(r);
+            String payload = encoder.encodeToString(r);
             String encoded = EnvelopeMAC.sign(ALGORITHM, key, payload);
             assertEquals(
                 payload,
@@ -48,14 +49,14 @@ public class EnvelopeMACTest {
             );
 
             final Map<String, String> map = new ObjectMapper().readValue(
-                Base64.decodeBase64(encoded),
+                Base64.getUrlDecoder().decode(encoded),
                 TypeFactory.defaultInstance().constructMapType(HashMap.class, String.class, String.class)
             );
             map.put(EnvelopeMAC.PAYLOAD_KEY, map.get(EnvelopeMAC.PAYLOAD_KEY) + "x");
             assertNull(
                 EnvelopeMAC.verify(
                     Arrays.asList(key),
-                    base64.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8))
+                    encoder.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8))
                 )
             );
         }
@@ -63,8 +64,8 @@ public class EnvelopeMACTest {
 
     @Test
     public void test2() throws Exception {
-        final byte[] key = new Base64(0).decode("Wd7TqTszHfIJ+o6t7kAcEcn9Wa+oQbirJmn+rlKHg5s=");
-        final String encoded = "eyJhcnRpZmFjdCI6IkVudmVsb3BlTUFDIiwia2V5aWRfYWxnbyI6IlNIQS0xIiwic2FsdCI6ImFWT0EzYVVKTGJ0U3NUWVRuQUNTc09hV2dUQU5QT3NKOE5obTVHakt1bkE9IiwicGF5bG9hZCI6Im9rIiwibWFjX2FsZ28iOiJIbWFjU0hBMjU2Iiwia2V5aWQiOiJtWFFjUVp1eHRZZjBrdFhjdmlzRVl4VXR2TVk9IiwidmVyc2lvbiI6IjEiLCJtYWMiOiJML2p1S2FwVTB6WWxtMGhyZXR3R3hBSmdicEpXOEJQbDN2Yy93WnZrcnA0PSJ9";
+        final byte[] key = Base64.getUrlDecoder().decode("Wd7TqTszHfIJ-o6t7kAcEcn9Wa-oQbirJmn-rlKHg5s");
+        final String encoded = "eyJhcnRpZmFjdCI6IkVudmVsb3BlTUFDIiwia2V5aWRfYWxnbyI6IlNIQS0xIiwic2FsdCI6IlVqbFI3eEtFNHN2UXNSeldpaFlhb0xMVDVEYWFtR1lCblprU2FBYi1nMmsiLCJwYXlsb2FkIjoib2siLCJtYWNfYWxnbyI6IkhtYWNTSEEyNTYiLCJrZXlpZCI6Im1YUWNRWnV4dFlmMGt0WGN2aXNFWXhVdHZNWSIsInZlcnNpb24iOiIxIiwibWFjIjoibmZUU21rVldSQ0N6eUllOVNfVnMyN0FuTnVCT3FsU01ieTNyd2ZDOTVuRSJ9";
         String payload = "ok";
 
         //System.out.println(EnvelopeMAC.sign(ALGORITHM, key, payload));

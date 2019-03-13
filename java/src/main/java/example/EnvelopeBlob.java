@@ -10,6 +10,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -18,7 +19,6 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.type.TypeFactory;
 
@@ -68,14 +68,14 @@ public class EnvelopeBlob {
         }
 
         final String wrapAlgo = cert.getPublicKey().getAlgorithm() + "/" + PKEY_MODE_PADDING;
-        final Base64 base64 = new Base64(0);
+        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         final Map<String, String> map = new HashMap<>();
         final Map<String, String> env = new HashMap<>();
 
         env.put(PAYLOAD_KEY, payload);
         byte[] r = new byte[((payload.length() / blockSize) + 1) * blockSize - payload.length()];
         random.nextBytes(r);
-        env.put(RANDOM_KEY, base64.encodeToString(r));
+        env.put(RANDOM_KEY, encoder.encodeToString(r));
 
         KeyGenerator gen = KeyGenerator.getInstance(algorithm.split("/", 2)[0]);
         gen.init(bits);
@@ -89,14 +89,14 @@ public class EnvelopeBlob {
         map.put(VERSION_KEY, VERSION);
         map.put(WRAP_ALGO_KEY, wrapAlgo);
         map.put(CIPHER_ALGO_KEY, algorithm);
-        map.put(ENCRYPTED_PAYLOAD_KEY, base64.encodeToString(cipher.doFinal(
+        map.put(ENCRYPTED_PAYLOAD_KEY, encoder.encodeToString(cipher.doFinal(
             new ObjectMapper().writeValueAsString(env).getBytes(StandardCharsets.UTF_8)))
         );
-        map.put(IV_KEY, base64.encodeToString(cipher.getIV()));
-        map.put(WRAPPED_KEY_KEY, base64.encodeToString(wrap.wrap(key)));
+        map.put(IV_KEY, encoder.encodeToString(cipher.getIV()));
+        map.put(WRAPPED_KEY_KEY, encoder.encodeToString(wrap.wrap(key)));
         map.put(WRAP_KEYID_ALGO_KEY, PUBKEY_DIGEST_ALGO);
-        map.put(WRAP_KEYID_KEY, base64.encodeToString(MessageDigest.getInstance(PUBKEY_DIGEST_ALGO).digest(cert.getPublicKey().getEncoded())));
-        return base64.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
+        map.put(WRAP_KEYID_KEY, encoder.encodeToString(MessageDigest.getInstance(PUBKEY_DIGEST_ALGO).digest(cert.getPublicKey().getEncoded())));
+        return encoder.encodeToString(new ObjectMapper().writeValueAsString(map).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -137,8 +137,10 @@ public class EnvelopeBlob {
         KeyStore.PrivateKeyEntry pkeyEntry,
         String blob
     ) throws GeneralSecurityException, IOException {
+        final Base64.Decoder decoder = Base64.getUrlDecoder();
+
         final Map<String, String> map = new ObjectMapper().readValue(
-            Base64.decodeBase64(blob),
+            decoder.decode(blob),
             TypeFactory.defaultInstance().constructMapType(HashMap.class, String.class, String.class)
         );
 
@@ -151,7 +153,7 @@ public class EnvelopeBlob {
 
         if (
             !MessageDigest.isEqual(
-                Base64.decodeBase64(map.get(WRAP_KEYID_KEY)),
+                decoder.decode(map.get(WRAP_KEYID_KEY)),
                 MessageDigest.getInstance(map.get(WRAP_KEYID_ALGO_KEY)).digest(
                     pkeyEntry.getCertificate().getPublicKey().getEncoded()
                 )
@@ -166,15 +168,15 @@ public class EnvelopeBlob {
         cipher.init(
             Cipher.DECRYPT_MODE,
             wrap.unwrap(
-                Base64.decodeBase64(map.get(WRAPPED_KEY_KEY)),
+                decoder.decode(map.get(WRAPPED_KEY_KEY)),
                 cipher.getAlgorithm().split("/", 2)[0],
                 Cipher.SECRET_KEY
             ),
-            new IvParameterSpec(Base64.decodeBase64(map.get(IV_KEY)))
+            new IvParameterSpec(decoder.decode(map.get(IV_KEY)))
         );
 
         final Map<String, String> env = new ObjectMapper().readValue(
-            cipher.doFinal(Base64.decodeBase64(map.get(ENCRYPTED_PAYLOAD_KEY))),
+            cipher.doFinal(decoder.decode(map.get(ENCRYPTED_PAYLOAD_KEY))),
             TypeFactory.defaultInstance().constructMapType(HashMap.class, String.class, String.class)
         );
         return env.get(PAYLOAD_KEY);

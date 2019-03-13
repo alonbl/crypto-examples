@@ -13,13 +13,13 @@ import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.cxf.rs.security.jose.jwa.SignatureAlgorithm;
 import org.apache.cxf.rs.security.jose.jws.JwsException;
 import org.apache.cxf.rs.security.jose.jws.JwsHeaders;
@@ -81,7 +81,7 @@ public class JwtValidationTest {
         int len = (int)ext[3];
         byte[] sku = new byte[len];
         System.arraycopy(ext, 4, sku, 0, len);
-        return new Base64(0).encodeToString(sku).replaceAll("=", "");
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(sku);
     }
 
     @BeforeClass
@@ -135,16 +135,16 @@ public class JwtValidationTest {
 
     @Test
     public void testSanityRaw() throws Exception {
-        String jwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImdpUFkxeHZYb0taTVN3eDcvV1dHSUpQQjByTSJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImV4cCI6MTQ4OTA4MTA3OTc5OTB9.K-Bp_9lAW2W9PjmXGdGwrEID-dvamTmZwwndcQvO8mJJgW_PIo76_BYO-Ncstb_vPnxdG2Re9X_kEjve-i5cymdIkoYczPlryg-QxgLa1ZUt0-7FkLhWbGxghNLxk2k5vdcS07OwOG6wdDhoEvv_49h05p4FKG2Re5dskJIXRKzvmBYddqJrBDJsfYT0UGB94oVKnOQtI7mEB4Q1XpKz5NqYMN_HWZqEF5MHBBLbsIxCpHD6zOeJNppl7BSywFyJMRp-eSBwKlsR3eSX_jMDuM13Eaf3h3yd2pKDIxtValh822xaL9GnDq-YeAxmQrEg8o6tN_r1WRcoS8-cgqw3Ng";
+        String jwt = "eyJraWQiOiJnaVBZMXh2WG9LWk1Td3g3X1dXR0lKUEIwck0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiZXhwIjoxNDg5MDgxMDc5Nzk5MH0.AVPnrfxsvuR75QYiZK2pY0IYlBZAU-VEoSJf6DN35-NGa5eFSAc2CddqKbwiHG9jRYbSASD2kf34QDhsue5Vg0T_3LTVu6JiSrxxNOhduAhRxSdEiaBNA8Qb9wCJ16DT8nd-c87TuzNYd2tkPi2gk0BI406xFT9TmsR0dGDTaqh6WLdWtsyLvxAD0xQWO9zXlpycrZMkmC1bgp0uB1Qft2kiGApwuGsSjhxp81Tzcs9mHJnKh9flZYmEDO89Gvg4cjBKDt5AGIv37-AITzidDA3qSVtsyBADFTVkSzkuci4Nl9mHm_tefWXUMp9GsmbVP-QcDSzFR5SWpoPh_OYiRQ";
+        //System.out.println(getJwt(null, new MMap<String, Object>().mput("exp", 14890810797990L)));
 /*
 {
-  "alg": "RS256",
-  "kid": "giPY1xvXoKZMSwx7/WWGIJPB0rM"
+  "kid": "giPY1xvXoKZMSwx7_WWGIJPB0rM",
+  "alg": "RS256"
 }
 {
   "sub": "1234567890",
   "name": "John Doe",
-  "admin": true,
   "exp": 14890810797990
 }
 */
@@ -233,7 +233,7 @@ public class JwtValidationTest {
         thrown.expectMessage("Unsupported algorithm 'xxx'");
         String valid = getJwt(null, null);
         jv.verify(
-            new Base64(0).encodeToString("{\"alg\": \"xxx\", \"kid\":\"eee\"}".getBytes(StandardCharsets.UTF_8)) +
+            Base64.getUrlEncoder().withoutPadding().encodeToString("{\"alg\": \"xxx\", \"kid\":\"eee\"}".getBytes(StandardCharsets.UTF_8)) +
             valid.substring(valid.indexOf('.'))
         );
     }
@@ -244,7 +244,7 @@ public class JwtValidationTest {
         thrown.expectMessage("Missing algorithm");
         String valid = getJwt(null, null);
         jv.verify(
-            new Base64(0).encodeToString("{\"kid\":\"eee\"}".getBytes(StandardCharsets.UTF_8)) +
+            Base64.getUrlEncoder().withoutPadding().encodeToString("{\"kid\":\"eee\"}".getBytes(StandardCharsets.UTF_8)) +
             valid.substring(valid.indexOf('.'))
         );
     }

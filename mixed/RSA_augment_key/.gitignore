@@ -1,0 +1,5 @@
+*.exe
+*.o
+*.tmp
+RSA_augment_key_test
+tmp.*
